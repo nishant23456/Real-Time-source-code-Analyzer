@@ -16,3 +16,6 @@ conda activate llmapp
 ### STEP 02- install the requirements
 ```bash
 pip install -r requirements.txt
+
+
+244546636284.dkr.ecr.ap-southeast-2.amazonaws.com/codechatbot

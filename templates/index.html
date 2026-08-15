@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Real-Time Source Code Analyzer</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+
+<body>
+
+<div class="container">
+
+    <!-- =========================================
+         HEADER
+    ========================================== -->
+
+    <div class="header">
+
+        <h1>Real-Time Source Code Analyzer</h1>
+
+        <p>
+            Analyze your GitHub repository using AI
+        </p>
+
+    </div>
+
+
+    <!-- =========================================
+         REPOSITORY SECTION
+    ========================================== -->
+
+    <div class="repo-section">
+
+        <h2>🔗 Analyze GitHub Repository</h2>
+
+        <form id="repoForm" class="repo-form">
+
+            <input
+                type="text"
+                id="repoUrl"
+                name="question"
+                placeholder="Enter GitHub repository URL"
+                autocomplete="off"
+                required
+            >
+
+            <button
+                type="submit"
+                id="analyzeBtn">
+
+                Analyze Repository
+
+            </button>
+
+        </form>
+
+        <p id="status"></p>
+
+    </div>
+
+
+    <!-- =========================================
+         CHAT SECTION
+    ========================================== -->
+
+    <div class="chat-section">
+
+        <h2>💬 Ask Questions About Your Code</h2>
+
+
+        <div id="chatBox" class="chat-box">
+
+            <div class="message bot">
+
+                Hello! 👋
+
+                <br><br>
+
+                First enter a GitHub repository above.
+
+                <br>
+
+                Then ask me anything about the source code.
+
+            </div>
+
+        </div>
+
+
+        <!-- CHAT FORM -->
+
+        <form id="chatForm" class="chat-form">
+
+            <input
+                type="text"
+                id="message"
+                name="msg"
+                placeholder="Ask something about the code..."
+                autocomplete="off"
+                required
+            >
+
+            <button
+                type="submit"
+                id="sendBtn">
+
+                Send
+
+            </button>
+
+
+            <button
+                type="button"
+                class="clear-btn"
+                id="clearBtn">
+
+                Clear
+
+            </button>
+
+        </form>
+
+    </div>
+
+
+    <!-- =========================================
+         FOOTER
+    ========================================== -->
+
+    <div class="footer">
+
+        <p>
+            Powered by
+            <span>Groq</span> +
+            <span>HuggingFace</span> +
+            <span>Chroma</span>
+        </p>
+
+    </div>
+
+</div>
+
+
+
+<script>
+
+
+// =========================================================
+// ELEMENTS
+// =========================================================
+
+const repoForm = document.getElementById("repoForm");
+
+const repoUrl = document.getElementById("repoUrl");
+
+const analyzeBtn = document.getElementById("analyzeBtn");
+
+const status = document.getElementById("status");
+
+const chatForm = document.getElementById("chatForm");
+
+const messageInput = document.getElementById("message");
+
+const sendBtn = document.getElementById("sendBtn");
+
+const clearBtn = document.getElementById("clearBtn");
+
+const chatBox = document.getElementById("chatBox");
+
+
+// =========================================================
+// REPOSITORY SUBMISSION
+// =========================================================
+
+repoForm.addEventListener(
+    "submit",
+    async function(event) {
+
+        event.preventDefault();
+
+
+        const url = repoUrl.value.trim();
+
+
+        if (!url) {
+
+            status.innerText =
+                "❌ Please enter a GitHub repository URL.";
+
+            return;
+        }
+
+
+        // Disable button while processing
+
+        analyzeBtn.disabled = true;
+
+        analyzeBtn.innerText =
+            "Processing...";
+
+
+        status.innerText =
+            "⏳ Downloading repository and creating embeddings...";
+
+
+        try {
+
+            const formData = new FormData();
+
+            formData.append(
+                "question",
+                url
+            );
+
+
+            const response = await fetch(
+                "/chatbot",
+                {
+                    method: "POST",
+                    body: formData
+                }
+            );
+
+
+            const data = await response.json();
+
+
+            // =============================================
+            // SUCCESS
+            // =============================================
+
+            if (data.success) {
+
+                status.innerText =
+                    "✅ Repository loaded successfully!";
+
+
+                addMessage(
+                    "Repository loaded successfully. You can now ask questions about the code. 🚀",
+                    "bot"
+                );
+
+            }
+
+
+            // =============================================
+            // ERROR
+            // =============================================
+
+            else {
+
+                status.innerText =
+                    "❌ " + (
+                        data.error ||
+                        "Failed to load repository."
+                    );
+
+            }
+
+        }
+
+
+        catch (error) {
+
+            console.error(
+                "Repository error:",
+                error
+            );
+
+
+            status.innerText =
+                "❌ Server error while loading repository.";
+
+        }
+
+
+        finally {
+
+            analyzeBtn.disabled = false;
+
+            analyzeBtn.innerText =
+                "Analyze Repository";
+
+        }
+
+    }
+);
+
+
+
+// =========================================================
+// CHAT
+// =========================================================
+
+chatForm.addEventListener(
+    "submit",
+    async function(event) {
+
+        event.preventDefault();
+
+
+        const message =
+            messageInput.value.trim();
+
+
+        if (!message) {
+
+            return;
+
+        }
+
+
+        // =============================================
+        // SHOW USER MESSAGE
+        // =============================================
+
+        addMessage(
+            message,
+            "user"
+        );
+
+
+        messageInput.value = "";
+
+
+        // =============================================
+        // SHOW THINKING
+        // =============================================
+
+        addMessage(
+            "Thinking...",
+            "bot"
+        );
+
+
+        const thinkingMessage =
+            chatBox.lastElementChild;
+
+
+        sendBtn.disabled = true;
+
+
+        try {
+
+            const formData =
+                new FormData();
+
+
+            formData.append(
+                "msg",
+                message
+            );
+
+
+            const response =
+                await fetch(
+                    "/get",
+                    {
+                        method: "POST",
+                        body: formData
+                    }
+                );
+
+
+            // =============================================
+            // IMPORTANT:
+            // BACKEND NOW RETURNS JSON
+            // =============================================
+
+            const data =
+                await response.json();
+
+
+            // Remove "Thinking..."
+
+            if (thinkingMessage) {
+
+                thinkingMessage.remove();
+
+            }
+
+
+            // =============================================
+            // SUCCESS
+            // =============================================
+
+            if (data.success) {
+
+                addMessage(
+                    data.response,
+                    "bot"
+                );
+
+            }
+
+
+            // =============================================
+            // ERROR
+            // =============================================
+
+            else {
+
+                addMessage(
+                    "❌ " + (
+                        data.response ||
+                        "Something went wrong."
+                    ),
+                    "bot"
+                );
+
+            }
+
+        }
+
+
+        catch (error) {
+
+            console.error(
+                "Chat error:",
+                error
+            );
+
+
+            if (thinkingMessage) {
+
+                thinkingMessage.remove();
+
+            }
+
+
+            addMessage(
+                "❌ Unable to contact the server.",
+                "bot"
+            );
+
+        }
+
+
+        finally {
+
+            sendBtn.disabled = false;
+
+            messageInput.focus();
+
+        }
+
+    }
+);
+
+
+
+// =========================================================
+// ADD MESSAGE
+// =========================================================
+
+function addMessage(
+    message,
+    type
+) {
+
+    const div =
+        document.createElement("div");
+
+
+    div.classList.add(
+        "message",
+        type
+    );
+
+
+    // Use textContent so returned code/HTML
+    // is displayed as text, NOT rendered as HTML.
+
+    div.textContent =
+        message;
+
+
+    chatBox.appendChild(
+        div
+    );
+
+
+    chatBox.scrollTop =
+        chatBox.scrollHeight;
+
+}
+
+
+
+// =========================================================
+// CLEAR BUTTON
+// =========================================================
+
+clearBtn.addEventListener(
+    "click",
+    async function() {
+
+        const confirmed =
+            confirm(
+                "Clear the repository and database?"
+            );
+
+
+        if (!confirmed) {
+
+            return;
+
+        }
+
+
+        clearBtn.disabled = true;
+
+        clearBtn.innerText =
+            "Clearing...";
+
+
+        try {
+
+            const response =
+                await fetch(
+                    "/clear",
+                    {
+                        method: "POST"
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            // =============================================
+            // SUCCESS
+            // =============================================
+
+            if (data.success) {
+
+
+                // Clear chat window
+
+                chatBox.innerHTML = `
+
+                    <div class="message bot">
+
+                        Repository and database
+                        cleared successfully. 🧹
+
+                        <br><br>
+
+                        Upload another GitHub repository
+                        to continue.
+
+                    </div>
+
+                `;
+
+
+                // Clear repository input
+
+                repoUrl.value = "";
+
+
+                // Clear status
+
+                status.innerText =
+                    "🧹 Repository and database cleared.";
+
+
+            }
+
+
+            // =============================================
+            // ERROR
+            // =============================================
+
+            else {
+
+                alert(
+                    "Clear failed: " +
+                    (
+                        data.error ||
+                        "Unknown error"
+                    )
+                );
+
+            }
+
+        }
+
+
+        catch (error) {
+
+            console.error(
+                "Clear error:",
+                error
+            );
+
+
+            alert(
+                "❌ Could not clear repository."
+            );
+
+        }
+
+
+        finally {
+
+            clearBtn.disabled = false;
+
+            clearBtn.innerText =
+                "Clear";
+
+        }
+
+    }
+);
+
+
+
+// =========================================================
+// ENTER KEY
+// =========================================================
+
+// Make sure pressing Enter in chat sends the question.
+
+messageInput.addEventListener(
+    "keydown",
+    function(event) {
+
+        if (
+            event.key === "Enter" &&
+            !event.shiftKey
+        ) {
+
+            event.preventDefault();
+
+            chatForm.requestSubmit();
+
+        }
+
+    }
+);
+
+</script>
+
+
+</body>
+
+</html>
